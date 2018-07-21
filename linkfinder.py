@@ -5,6 +5,7 @@
 
 # Fix webbrowser bug for MacOS
 import os
+import urllib
 os.environ["BROWSER"] = "open"
 
 # Import libraries
@@ -48,6 +49,9 @@ parser.add_argument("-b", "--burp",
 parser.add_argument("-c", "--cookies",
                     help="Add cookies for authenticated JS files",
                     action="store", default="")
+parser.add_argument("-f", "--file",
+                    help="Add urls from file",
+                    action="store_true")
 args = parser.parse_args()
 
 if args.input[-1:] == "/":
@@ -106,6 +110,21 @@ def parser_input(input):
     '''
     Parse Input
     '''
+    # Added later for output of amass and
+    if args.file:
+        final_list = []
+        with open(args.input) as f:
+            data = f.read()
+        urls = data.split("\n")[:-1]
+        # first check if startswith http:// or https:// 
+        # if not then prepend it
+        for url in urls:
+            # url decode , cause it may sometimes contain %20 for spaces
+            url = urllib.unquote(url).decode('utf8')
+            if not url.startswith("http://") and not url.startswith("https://"):
+                url = "http://"+url
+            final_list.append(url)
+        return final_list
 
     # Method 1 - URL
     if input.startswith(('http://', 'https://',
@@ -137,6 +156,7 @@ def parser_input(input):
     path = "file://%s" % os.path.abspath(input)
     return [path if os.path.exists(input) else parser_error("file could not \
 be found (maybe you forgot to add http/https).")]
+    
 
 
 def send_request(url):
@@ -148,7 +168,7 @@ def send_request(url):
     sslcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
 
     q.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
-        AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36')
+        AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3029.110 Safari/537.36')
     q.add_header('Accept', 'text/html,\
         application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8')
     q.add_header('Accept-Language', 'en-US,en;q=0.8')
@@ -306,11 +326,11 @@ for url in urls:
         html += '''
             <h1>File: <a href="%s" target="_blank" rel="nofollow noopener noreferrer">%s</a></h1>
             ''' % (cgi.escape(url), cgi.escape(url))
-
+        base_url = url
         for endpoint in endpoints:
             url = cgi.escape(endpoint[1])
             string = "<div><a href='%s' class='text'>%s" % (
-                cgi.escape(url),
+                cgi.escape(base_url+url),
                 cgi.escape(url)
             )
             string2 = "</a><div class='container'>%s</div></div>" % cgi.escape(
